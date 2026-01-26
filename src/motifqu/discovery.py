@@ -164,7 +164,8 @@ def grover_discover_motifs(
     progress_every: int = 5,
     force_iters: Optional[int] = None,
     optimization_level: int = 1,
-) -> List[Tuple[str, int, List[int]]]:
+    output_dir: Optional[str] = None,
+) -> Tuple[List[Tuple[str, int, List[int]]], Optional[QuantumCircuit], Optional[np.ndarray], Dict[str, List[int]]]:
     """Discover significant motifs using Grover's algorithm.
 
     This function:
@@ -183,9 +184,14 @@ def grover_discover_motifs(
         progress_every: Print progress every N iterations
         force_iters: Override automatic iteration count
         optimization_level: Qiskit transpile optimization level
+        output_dir: Optional directory to save plots and results
 
     Returns:
-        List of (kmer, count, positions) tuples, sorted by probability
+        Tuple of:
+        - List of (kmer, count, positions) tuples, sorted by probability
+        - QuantumCircuit used (for visualization)
+        - Probability array (for visualization)
+        - Dict of significant k-mers with positions
     """
     genome = genome.upper()
 
@@ -199,7 +205,7 @@ def grover_discover_motifs(
 
     if not marked_indices:
         log("No k-mers found meeting significance threshold")
-        return []
+        return [], None, None, {}
 
     M = len(marked_indices)
     log(f"Found {M} significant k-mers (meeting threshold)")
@@ -278,7 +284,7 @@ def grover_discover_motifs(
 
     log("-" * 60)
 
-    return results
+    return results, qc, probs, significant_kmers
 
 
 def discover_and_report(
