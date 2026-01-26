@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MotifQu"
-version = "1.0.0"
+version = "1.0.1"
 description = "Quantum motif search and discovery using Grover's algorithm over genomic FASTA sequences."
 readme = "README.md"
 requires-python = ">=3.9"
