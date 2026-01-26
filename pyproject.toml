@@ -10,7 +10,8 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
-  { name = "Your Name", email = "you@example.com" }
+  { name = "Akshay Uttarkar", email = "akshayuttarkar@gmail.com" },
+  { name = "Vidya Niranjan", email = "vidya.n@mitvpu.ac.in" }
 ]
 keywords = ["bioinformatics", "motif", "grover", "qiskit", "quantum", "discovery", "k-mer"]
 classifiers = [
