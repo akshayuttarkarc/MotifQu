@@ -1,6 +1,9 @@
 # MotifQu
 
-MotifQu is a Quantum motif search using Grover's algorithm. it reads a FASTA sequence, finds motif-hit indices classically, then constructs a Grover oracle that marks those indices and runs Grover iterations using Aer statevector simulation. This demonstrates amplitude amplification as a usage for Quantum motif search
+MotifQu is a quantum motif search and discovery tool using Grover's algorithm. It provides two main functions:
+
+1. **Motif Search**: Find occurrences of a known motif pattern in a genome
+2. **Motif Discovery**: Discover all significant motifs (k-mers) in a genome using quantum amplitude amplification
 
 ## Install
 
@@ -10,28 +13,65 @@ pip install MotifQu
 
 ## Usage
 
-Exact match:
+### Discover Motifs (New!)
+
+Find all significant k-mers in a genome:
 
 ```bash
-motifqu --fasta genome.fa --motif GTTGTTGGAGAAG --mismatches 0
+# Discover 6-mers appearing at least 3 times
+motifqu discover --fasta genome.fa -k 6 --min-count 3
+
+# Discover 8-mers, show top 20 results
+motifqu discover --fasta genome.fa -k 8 --min-count 2 --topk 20
+
+# Ignore reverse complement
+motifqu discover --fasta genome.fa -k 6 --min-count 3 --no-revcomp
 ```
 
-Interactive motif entry:
+### Search for Specific Motif
 
 ```bash
-motifqu --fasta genome.fa --mismatches 1
+# Exact match
+motifqu search --fasta genome.fa --motif GTTGTTGGAGAAG --mismatches 0
+
+# Allow 1 mismatch
+motifqu search --fasta genome.fa --motif TATAAA --mismatches 1
 ```
 
-## Coordinate output
+### List Known Biological Motifs
+
+```bash
+motifqu list-motifs
+```
+
+### Expand IUPAC Pattern
+
+```bash
+# Expand E-box pattern (CANNTG)
+motifqu expand CANNTG
+```
+
+## Coordinate Output
 
 MotifQu prints both:
 
 - 1-based inclusive coordinates: contig:start-end
 - 0-based half-open interval: [start,end)
 
-These coordinates are relative to the FASTA sequence provided. If your FASTA is a slice of a reference genome, you must add the appropriate offset yourself.
+These coordinates are relative to the FASTA sequence provided.
+
+## Biological Context
+
+The quantum motif discovery tool is designed for:
+
+- **Transcription Factor Binding Sites (TFBS)** - identifying regulatory sequences
+- **Repeat elements** - finding tandem repeats and microsatellites
+- **Conserved sequences** - detecting evolutionarily preserved patterns
+
+The algorithm uses Grover's search to amplify the probability of significant k-mers (those appearing >= threshold times), providing a quadratic speedup over classical enumeration for the 4^k k-mer search space.
 
 ## Notes
 
-- If --mismatches > 0, multiple hits are common (M > 1). Grover iteration count depends on M.
-- The oracle is hard-coded from classical hits. That is deliberate: building a coherent data-access oracle for a large genome is the real bottleneck.
+- For discovery, k-mer lengths 4-10bp are recommended (4^k states require 2k qubits)
+- The oracle is built from classical pre-computation of k-mer counts
+- Reverse complement is counted as the same motif by default (biological DNA is double-stranded)

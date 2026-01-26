@@ -4,17 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "MotifQu"
-version = "0.1.0"
-description = "Grover-based motif search demo over genomic FASTA sequences (Aer statevector simulator)."
+version = "1.0.0"
+description = "Quantum motif search and discovery using Grover's algorithm over genomic FASTA sequences."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [
   { name = "Your Name", email = "you@example.com" }
 ]
-keywords = ["bioinformatics", "motif", "grover", "qiskit", "quantum"]
+keywords = ["bioinformatics", "motif", "grover", "qiskit", "quantum", "discovery", "k-mer"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
