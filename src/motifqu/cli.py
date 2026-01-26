@@ -4,7 +4,7 @@ import time
 
 from motifqu.fasta import read_fasta
 from motifqu.grover import grover_run_aer_statevector
-from motifqu.discovery import grover_discover_motifs
+from motifqu.discovery import grover_discover_motifs, index_to_kmer
 from motifqu.bio_patterns import list_known_motifs, get_motif_info, expand_iupac
 from motifqu.util import log
 
@@ -59,7 +59,7 @@ def cmd_discover(args: argparse.Namespace) -> None:
     log(f"Minimum count: {args.min_count}")
     log(f"Include reverse complement: {args.revcomp}")
 
-    results = grover_discover_motifs(
+    results, qc, probs, significant_kmers = grover_discover_motifs(
         contig=contig,
         genome=genome,
         k=k,
@@ -69,12 +69,81 @@ def cmd_discover(args: argparse.Namespace) -> None:
         progress_every=args.progress_every,
         force_iters=args.iters,
         optimization_level=args.opt_level,
+        output_dir=args.output,
     )
 
     if not results:
         log("No significant motifs discovered.")
     else:
         log(f"\nDiscovered {len(results)} significant motifs")
+
+    # Save outputs if output directory specified
+    if args.output and results:
+        from motifqu.visualization import (
+            save_circuit_diagram,
+            save_probability_histogram,
+            save_genome_visualization,
+            save_results_csv,
+            save_results_json,
+            save_summary_report,
+        )
+
+        log(f"\nSaving outputs to: {args.output}")
+
+        # Save circuit diagram (simplified version for large circuits)
+        if qc is not None:
+            try:
+                # For small circuits, save the actual circuit
+                if qc.num_qubits <= 8:
+                    save_circuit_diagram(qc, args.output, "grover_circuit.png")
+                else:
+                    # For larger circuits, create a simplified schematic
+                    from qiskit import QuantumCircuit as QC
+                    n = 2 * k
+                    viz_qc = QC(n, name="Grover Discovery")
+                    viz_qc.h(range(n))
+                    viz_qc.barrier(label="Oracle")
+                    viz_qc.barrier(label="Diffuser")
+                    viz_qc.barrier(label=f"x{10} iters")
+                    save_circuit_diagram(viz_qc, args.output, "grover_circuit.png")
+            except Exception as e:
+                log(f"Could not save circuit diagram: {e}")
+
+        # Save probability histogram
+        if probs is not None:
+            top_indices = probs.argsort()[-args.topk:][::-1]
+            labels = [index_to_kmer(int(i), k) for i in top_indices if i < 4**k]
+            save_probability_histogram(
+                probs, [int(i) for i in top_indices if i < 4**k],
+                labels, args.output, "probability_distribution.png"
+            )
+
+        # Save genome visualization
+        if significant_kmers:
+            save_genome_visualization(
+                genome, significant_kmers, args.output, "genome_motifs.png"
+            )
+
+        # Save results
+        save_results_csv(results, args.output, "discovered_motifs.csv")
+        save_results_json(
+            results,
+            {
+                "contig": contig,
+                "genome_length": len(genome),
+                "k": k,
+                "min_count": args.min_count,
+                "include_revcomp": args.revcomp,
+                "total_significant": len(significant_kmers),
+            },
+            args.output,
+            "results.json",
+        )
+        save_summary_report(
+            contig, len(genome), k, args.min_count, results, args.output
+        )
+
+        log(f"All outputs saved to: {args.output}")
 
     log(f"TOTAL runtime: {time.time() - t0:.3f}s")
 
@@ -136,6 +205,7 @@ def main() -> None:
     discover_parser.add_argument("--progress-every", type=int, default=5, help="Progress print every N iterations.")
     discover_parser.add_argument("--iters", type=int, default=None, help="Force Grover iteration count.")
     discover_parser.add_argument("--opt-level", type=int, default=1, choices=[0, 1, 2, 3], help="Qiskit transpile optimization level.")
+    discover_parser.add_argument("-o", "--output", default=None, help="Output directory for results, plots, and circuit diagrams.")
     discover_parser.set_defaults(func=cmd_discover, revcomp=True)
 
     # === LIST-MOTIFS subcommand ===

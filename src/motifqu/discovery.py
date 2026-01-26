@@ -246,27 +246,22 @@ def grover_discover_motifs(
     amps = np.asarray(sv, dtype=complex)
     probs = (np.abs(amps) ** 2).real
 
-    # Get top-k results
-    top_indices = probs.argsort()[-topk:][::-1]
+    # Only consider MARKED (significant) k-mers for results
+    # Sort them by their Grover-amplified probability
+    marked_probs = [(idx, probs[idx]) for idx in marked_indices]
+    marked_probs.sort(key=lambda x: x[1], reverse=True)
 
     results = []
-    log(f"\nTop-{topk} discovered motifs:")
+    log(f"\nTop-{min(topk, len(marked_probs))} discovered motifs (from {len(marked_probs)} significant):")
     log("-" * 60)
 
-    for rank, idx in enumerate(top_indices, 1):
+    for rank, (idx, prob) in enumerate(marked_probs[:topk], 1):
         idx = int(idx)
-        prob = float(probs[idx])
-
-        if idx >= N:
-            continue  # Skip padding states
+        prob = float(prob)
 
         kmer = index_to_kmer(idx, k)
         positions = significant_kmers.get(kmer, [])
         count = len(positions)
-
-        # Check if this is a marked (significant) k-mer
-        is_significant = idx in marked_indices
-        tag = "SIG" if is_significant else "---"
 
         results.append((kmer, count, positions))
 
@@ -279,7 +274,7 @@ def grover_discover_motifs(
             pos_preview = "none"
 
         log(
-            f"  #{rank:2d}: {kmer} | prob={prob:.6f} | count={count:4d} | {tag} | positions: {pos_preview}"
+            f"  #{rank:2d}: {kmer} | prob={prob:.6f} | count={count:4d} | positions: {pos_preview}"
         )
 
     log("-" * 60)
