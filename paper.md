@@ -1,5 +1,5 @@
 ---
-title: 'MotifQu: Quantum motif search and k-mer discovery in genomes using Grover amplitude amplification'
+Title: 'MotifQu: Quantum motif search and k-mer discovery in genomes using Grover amplitude amplification'
 tags:
   - Python
   - bioinformatics
