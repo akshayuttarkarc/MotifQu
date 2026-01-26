@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MotifQu"
+version = "0.1.0"
+description = "Grover-based motif search demo over genomic FASTA sequences (Aer statevector simulator)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "Your Name", email = "you@example.com" }
+]
+keywords = ["bioinformatics", "motif", "grover", "qiskit", "quantum"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+dependencies = [
+  "numpy>=1.23",
+  "qiskit>=1.0",
+  "qiskit-aer>=0.13",
+]
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.0.0",
+  "twine>=5.0.0",
+  "pytest>=7.0.0",
+  "ruff>=0.5.0",
+]
+
+[project.scripts]
+motifqu = "motifqu.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
