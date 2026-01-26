@@ -116,7 +116,7 @@ The current implementation uses a classically computed marked set to build an ex
 **Vidya Niranjan**: Conceptualization, Supervision, Writing – review & editing.
 
 # Acknowledgements
-
-We thank R V College of Engineering for institutional support. The authors acknowledge the Qiskit development team for maintaining an accessible quantum computing framework.
+We thank MIT Vishwaprayag University for the continued support for providng research infrastructure. 
+We thank R V College of Engineering for institutional support. 
 
 # References
