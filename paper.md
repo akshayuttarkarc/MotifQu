@@ -112,8 +112,9 @@ The current implementation uses a classically computed marked set to build an ex
 
 # Author contributions
 
-**Akshay Uttarkar**: Development, Analysis, Software, Validation, Writing – original draft.
 **Vidya Niranjan**: Conceptualization, Supervision, Writing – review & editing.
+**Akshay Uttarkar**: Development, Analysis, Software, Validation, Writing – original draft.
+
 
 # Acknowledgements
 We thank MIT Vishwaprayag University for the continued support for providng research infrastructure. 
