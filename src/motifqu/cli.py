@@ -206,6 +206,10 @@ def main() -> None:
     discover_parser.add_argument("--iters", type=int, default=None, help="Force Grover iteration count.")
     discover_parser.add_argument("--opt-level", type=int, default=1, choices=[0, 1, 2, 3], help="Qiskit transpile optimization level.")
     discover_parser.add_argument("-o", "--output", default=None, help="Output directory for results, plots, and circuit diagrams.")
+    discover_parser.add_argument("--backend", default="aer", choices=["aer", "ibm"], help="Backend: 'aer' (simulator) or 'ibm' (real hardware).")
+    discover_parser.add_argument("--ibm-token", default=None, help="IBM Quantum API token (or set IBMQ_TOKEN env var).")
+    discover_parser.add_argument("--ibm-backend", default=None, help="Specific IBM backend name (e.g., 'ibm_brisbane').")
+    discover_parser.add_argument("--shots", type=int, default=4096, help="Number of shots for hardware execution (default 4096).")
     discover_parser.set_defaults(func=cmd_discover, revcomp=True)
 
     # === LIST-MOTIFS subcommand ===

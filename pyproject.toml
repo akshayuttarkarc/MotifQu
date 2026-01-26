@@ -38,6 +38,9 @@ dev = [
   "pytest>=7.0.0",
   "ruff>=0.5.0",
 ]
+ibm = [
+  "qiskit-ibm-runtime>=0.20",
+]
 
 [project.scripts]
 motifqu = "motifqu.cli:main"

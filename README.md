@@ -70,8 +70,46 @@ The quantum motif discovery tool is designed for:
 
 The algorithm uses Grover's search to amplify the probability of significant k-mers (those appearing >= threshold times), providing a quadratic speedup over classical enumeration for the 4^k k-mer search space.
 
+## IBM Quantum Hardware (Optional)
+
+Run on real quantum hardware with IBM Quantum access:
+
+```bash
+# Install IBM runtime support
+pip install MotifQu[ibm]
+
+# Run on IBM Quantum (requires API token)
+export IBMQ_TOKEN="your-ibm-quantum-token"
+motifqu discover --fasta genome.fa -k 8 --min-count 10 --backend ibm
+
+# Or specify token directly
+motifqu discover --fasta genome.fa -k 8 --min-count 10 --backend ibm --ibm-token YOUR_TOKEN
+
+# Use specific backend
+motifqu discover --fasta genome.fa -k 6 --backend ibm --ibm-backend ibm_brisbane --shots 8192
+```
+
+Get your IBM Quantum API token at: https://quantum.ibm.com/
+
+## Output Files
+
+Use `--output` to save results:
+
+```bash
+motifqu discover --fasta genome.fa -k 6 --min-count 5 --output ./results
+```
+
+Generated files:
+- `grover_circuit.png` - Quantum circuit diagram
+- `probability_distribution.png` - K-mer probabilities
+- `genome_motifs.png` - Motif positions visualization
+- `discovered_motifs.csv` - Results table
+- `results.json` - Full results with metadata
+- `summary_report.txt` - Human-readable report
+
 ## Notes
 
-- For discovery, k-mer lengths 4-10bp are recommended (4^k states require 2k qubits)
+- For discovery, k-mer lengths 6-10bp are recommended (4^k states require 2k qubits)
 - The oracle is built from classical pre-computation of k-mer counts
-- Reverse complement is counted as the same motif by default (biological DNA is double-stranded)
+- Reverse complement is counted as the same motif by default
+- Quantum advantage is greatest when few k-mers are significant (M << N)
