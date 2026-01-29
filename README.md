@@ -113,3 +113,47 @@ Generated files:
 - The oracle is built from classical pre-computation of k-mer counts
 - Reverse complement is counted as the same motif by default
 - Quantum advantage is greatest when few k-mers are significant (M << N)
+
+## Execution Flow: Local vs. QPU
+
+Understanding what runs on your local machine vs. the quantum processor:
+
+| Step | Location | Description |
+|------|----------|-------------|
+| 1. FASTA Loading | Local | Read genome file |
+| 2. K-mer Counting | Local | Count k-mer occurrences classically |
+| 3. Oracle Building | Local | Identify significant k-mers |
+| 4. Circuit Construction | Local | Build Grover circuit (oracle + diffuser iterations) |
+| 5. Transpilation | Local | Convert to hardware-native gates |
+| 6. Circuit Execution | **QPU** | Run the transpiled circuit |
+| 7. Measurement | **QPU** | Measure qubit states |
+| 8. Result Analysis | Local | Convert counts to probabilities |
+
+### How Grover Iterations Work
+
+The progress messages like `"Grover iteration 5/183 completed"` show **circuit construction** progress happening locally. All iterations are compiled into **one circuit** that is then:
+
+1. Transpiled locally to hardware-native gates
+2. Sent to IBM as a single job
+3. Executed on the QPU once (repeated `shots` times for statistics)
+
+The QPU runs all Grover iterations in quantum superposition - this is where the quantum speedup comes from!
+
+### Transpilation Output
+
+When running, MotifQu displays gate counts after transpilation:
+
+```
+=== Transpilation Results ===
+  Circuit depth: 245
+  Total gates: 1523
+  Gate breakdown:
+    rz: 890
+    sx: 456
+    cx: 177
+  Number of qubits: 10
+=============================
+```
+
+This helps understand circuit complexity and estimate execution time on real hardware.
+

@@ -30,13 +30,13 @@ def check_ibm_runtime() -> bool:
     return IBM_RUNTIME_AVAILABLE
 
 
-def get_ibm_service(token: Optional[str] = None, channel: str = "ibm_quantum") -> "QiskitRuntimeService":
+def get_ibm_service(token: Optional[str] = None, channel: str = "ibm_quantum_platform") -> "QiskitRuntimeService":
     """Get IBM Quantum Runtime service.
     
     Args:
         token: IBM Quantum API token. If None, uses saved credentials or
                IBMQ_TOKEN environment variable.
-        channel: Service channel ('ibm_quantum' or 'ibm_cloud')
+        channel: Service channel ('ibm_quantum_platform' or 'ibm_cloud')
     
     Returns:
         QiskitRuntimeService instance
@@ -111,6 +111,7 @@ def run_on_ibm_hardware(
     backend_name: Optional[str] = None,
     shots: int = 4096,
     optimization_level: int = 3,
+    output_dir: Optional[str] = None,
 ) -> Tuple[np.ndarray, dict]:
     """Run a quantum circuit on IBM Quantum hardware.
     
@@ -120,10 +121,14 @@ def run_on_ibm_hardware(
         backend_name: Specific backend to use (None = auto-select)
         shots: Number of measurement shots
         optimization_level: Transpilation optimization level
+        output_dir: Optional directory to save job results
     
     Returns:
         Tuple of (probability distribution as array, raw counts dict)
     """
+    import time
+    import json
+    
     if not IBM_RUNTIME_AVAILABLE:
         raise ImportError("qiskit-ibm-runtime not installed")
     
@@ -136,26 +141,60 @@ def run_on_ibm_hardware(
     log(f"Using IBM Quantum backend: {backend_name}")
     backend = service.backend(backend_name)
     
+    # Get backend calibration data
+    log(f"Fetching calibration data for {backend_name}...")
+    try:
+        properties = backend.properties()
+        if properties:
+            log(f"  Calibration date: {properties.last_update_date}")
+    except Exception as e:
+        log(f"  Could not fetch calibration data: {e}")
+    
     # Add measurements to circuit (required for hardware)
     qc_measured = qc.copy()
     qc_measured.measure_all()
     
-    # Transpile for the specific backend
-    log(f"Transpiling circuit for {backend_name}...")
+    # Transpile for the specific backend with optimization
+    log(f"Transpiling circuit for {backend_name} (optimization_level={optimization_level})...")
     transpiled = transpile(
         qc_measured,
         backend,
         optimization_level=optimization_level
     )
-    log(f"Transpiled circuit depth: {transpiled.depth()}")
+    
+    # Print gate counts after transpilation
+    gate_counts = transpiled.count_ops()
+    total_gates = sum(gate_counts.values())
+    log(f"\n=== Transpilation Results ===")
+    log(f"  Circuit depth: {transpiled.depth()}")
+    log(f"  Total gates: {total_gates}")
+    log(f"  Gate breakdown:")
+    for gate, count in sorted(gate_counts.items(), key=lambda x: -x[1]):
+        log(f"    {gate}: {count}")
+    log(f"  Number of qubits: {transpiled.num_qubits}")
+    log(f"=============================\n")
     
     # Run using Sampler primitive
     log(f"Submitting job with {shots} shots...")
     sampler = SamplerV2(backend)
     job = sampler.run([transpiled], shots=shots)
     
-    log(f"Job ID: {job.job_id()}")
-    log("Waiting for job to complete (this may take minutes on real hardware)...")
+    job_id = job.job_id()
+    log(f"Job ID: {job_id}")
+    log("Waiting for job to complete (checking status every 10 seconds)...\n")
+    
+    # Poll job status every 10 seconds
+    while True:
+        status = job.status()
+        log(f"  [{time.strftime('%H:%M:%S')}] Job status: {status}")
+        
+        if status in ["DONE", "COMPLETED"]:
+            log(f"\n  Job completed successfully!")
+            break
+        elif status in ["ERROR", "CANCELLED"]:
+            raise RuntimeError(f"Job failed with status: {status}")
+        
+        time.sleep(10)
     
     result = job.result()
     
@@ -172,7 +211,29 @@ def run_on_ibm_hardware(
         idx = int(bitstring[::-1], 2)
         probs[idx] = count / shots
     
-    log(f"Job completed. Got {len(counts)} unique outcomes.")
+    log(f"\nJob completed. Got {len(counts)} unique outcomes.")
+    
+    # Save results to output directory if specified
+    if output_dir:
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+        
+        job_info = {
+            "job_id": job_id,
+            "backend": backend_name,
+            "shots": shots,
+            "optimization_level": optimization_level,
+            "circuit_depth": transpiled.depth(),
+            "total_gates": total_gates,
+            "gate_counts": gate_counts,
+            "num_qubits": transpiled.num_qubits,
+            "counts": counts,
+        }
+        
+        job_file = os.path.join(output_dir, "ibm_job_results.json")
+        with open(job_file, "w") as f:
+            json.dump(job_info, f, indent=2, default=str)
+        log(f"Job results saved to: {job_file}")
     
     return probs, counts
 
@@ -182,6 +243,8 @@ def run_grover_ibm(
     token: Optional[str] = None,
     backend_name: Optional[str] = None,
     shots: int = 4096,
+    optimization_level: int = 3,
+    output_dir: Optional[str] = None,
 ) -> Tuple[np.ndarray, dict]:
     """Convenience function to run Grover circuit on IBM Quantum.
     
@@ -190,9 +253,13 @@ def run_grover_ibm(
         token: IBM Quantum API token (optional if saved)
         backend_name: Specific backend (None = auto-select)
         shots: Number of measurement shots
+        optimization_level: Transpilation optimization level
+        output_dir: Optional directory to save job results
     
     Returns:
         Tuple of (probability array, counts dict)
     """
     service = get_ibm_service(token)
-    return run_on_ibm_hardware(qc, service, backend_name, shots)
+    return run_on_ibm_hardware(
+        qc, service, backend_name, shots, optimization_level, output_dir
+    )

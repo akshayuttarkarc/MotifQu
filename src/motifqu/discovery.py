@@ -165,6 +165,10 @@ def grover_discover_motifs(
     force_iters: Optional[int] = None,
     optimization_level: int = 1,
     output_dir: Optional[str] = None,
+    backend: str = "aer",
+    ibm_token: Optional[str] = None,
+    ibm_backend: Optional[str] = None,
+    shots: int = 4096,
 ) -> Tuple[List[Tuple[str, int, List[int]]], Optional[QuantumCircuit], Optional[np.ndarray], Dict[str, List[int]]]:
     """Discover significant motifs using Grover's algorithm.
 
@@ -185,6 +189,10 @@ def grover_discover_motifs(
         force_iters: Override automatic iteration count
         optimization_level: Qiskit transpile optimization level
         output_dir: Optional directory to save plots and results
+        backend: Backend type: 'aer' (simulator) or 'ibm' (real hardware)
+        ibm_token: IBM Quantum API token (for IBM backend)
+        ibm_backend: Specific IBM backend name (for IBM backend)
+        shots: Number of shots for hardware execution
 
     Returns:
         Tuple of:
@@ -197,6 +205,7 @@ def grover_discover_motifs(
 
     log(f"Discovering {k}-mers with count >= {min_count}")
     log(f"Genome length: {len(genome)}, search space: 4^{k} = {4**k} k-mers")
+    log(f"Backend: {backend.upper()}")
 
     # Build oracle
     marked_indices, significant_kmers = build_significance_oracle(
@@ -235,16 +244,49 @@ def grover_discover_motifs(
         if progress_every and (iteration % progress_every == 0 or iteration == iters):
             log(f"  Grover iteration {iteration}/{iters} completed")
 
-    qc.save_statevector()
-
-    # Simulate
-    sim = AerSimulator(method="statevector")
-    tqc = transpile(qc, sim, optimization_level=optimization_level)
-    result = sim.run(tqc).result()
-    sv = result.get_statevector(tqc)
-
-    amps = np.asarray(sv, dtype=complex)
-    probs = (np.abs(amps) ** 2).real
+    # Execute on selected backend
+    if backend == "ibm":
+        # IBM Quantum hardware execution
+        from motifqu.ibm_backend import run_grover_ibm, check_ibm_runtime
+        
+        if not check_ibm_runtime():
+            raise ImportError(
+                "qiskit-ibm-runtime not installed. Run: pip install qiskit-ibm-runtime"
+            )
+        
+        log(f"\n=== Running on IBM Quantum Hardware ===")
+        probs, counts = run_grover_ibm(
+            qc,
+            token=ibm_token,
+            backend_name=ibm_backend,
+            shots=shots,
+            optimization_level=optimization_level,
+            output_dir=output_dir,
+        )
+    else:
+        # Aer simulator execution (default)
+        qc.save_statevector()
+        sim = AerSimulator(method="statevector")
+        tqc = transpile(qc, sim, optimization_level=optimization_level)
+        
+        # Print gate counts for simulator too
+        gate_counts = tqc.count_ops()
+        total_gates = sum(v for k, v in gate_counts.items() if k != "save_statevector")
+        log(f"\n=== Transpilation Results (Aer Simulator) ===")
+        log(f"  Circuit depth: {tqc.depth()}")
+        log(f"  Total gates: {total_gates}")
+        log(f"  Gate breakdown:")
+        for gate, count in sorted(gate_counts.items(), key=lambda x: -x[1]):
+            if gate != "save_statevector":
+                log(f"    {gate}: {count}")
+        log(f"  Number of qubits: {tqc.num_qubits}")
+        log(f"=============================================\n")
+        
+        result = sim.run(tqc).result()
+        sv = result.get_statevector(tqc)
+        
+        amps = np.asarray(sv, dtype=complex)
+        probs = (np.abs(amps) ** 2).real
 
     # Only consider MARKED (significant) k-mers for results
     # Sort them by their Grover-amplified probability

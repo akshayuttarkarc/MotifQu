@@ -70,6 +70,10 @@ def cmd_discover(args: argparse.Namespace) -> None:
         force_iters=args.iters,
         optimization_level=args.opt_level,
         output_dir=args.output,
+        backend=args.backend,
+        ibm_token=args.ibm_token,
+        ibm_backend=args.ibm_backend,
+        shots=args.shots,
     )
 
     if not results:
