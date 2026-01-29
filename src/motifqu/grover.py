@@ -87,11 +87,22 @@ def grover_run_aer_statevector(
     progress_every: int = 5,
     force_iters: Optional[int] = None,
     optimization_level: int = 1,
-) -> Tuple[int, float, List[Tuple[int, float]]]:
-    """Run the demo Grover search using Aer statevector simulation.
+    backend: str = "aer",
+    ibm_token: Optional[str] = None,
+    ibm_backend: Optional[str] = None,
+    shots: int = 4096,
+    output_dir: Optional[str] = None,
+) -> Tuple[int, float, List[Tuple[int, float]], QuantumCircuit, np.ndarray, List[int]]:
+    """Run the demo Grover search using Aer statevector simulation or IBM hardware.
 
     Returns:
-      best_idx (0-based window start), best_prob, topk list of (idx, prob)
+      Tuple of:
+      - best_idx: 0-based window start of best match
+      - best_prob: probability of best match
+      - ranked: topk list of (idx, prob)
+      - qc: the quantum circuit used
+      - probs: probability array for all states
+      - hits: list of hit positions in genome
 
     Notes:
       - The oracle is defined by a classical scan of the genome.
@@ -116,6 +127,7 @@ def grover_run_aer_statevector(
         iters = max(1, int(force_iters))
 
     log(f"hits_count={M}; qubits={n}; padded_N={N}; real_positions={num_positions}; iters={iters}")
+    log(f"Backend: {backend.upper()}")
 
     qc = QuantumCircuit(n)
     qc.h(range(n))
@@ -125,15 +137,50 @@ def grover_run_aer_statevector(
         if progress_every and (k % progress_every == 0 or k == iters):
             log(f"  Grover iteration {k}/{iters} completed")
 
-    qc.save_statevector()
+    # Execute on selected backend
+    if backend == "ibm":
+        # IBM Quantum hardware execution
+        from motifqu.ibm_backend import run_grover_ibm, check_ibm_runtime
+        
+        if not check_ibm_runtime():
+            raise ImportError(
+                "qiskit-ibm-runtime not installed. Run: pip install qiskit-ibm-runtime"
+            )
+        
+        log(f"\n=== Running on IBM Quantum Hardware ===")
+        probs, counts = run_grover_ibm(
+            qc,
+            token=ibm_token,
+            backend_name=ibm_backend,
+            shots=shots,
+            optimization_level=optimization_level,
+            output_dir=output_dir,
+        )
+    else:
+        # Aer simulator execution (default)
+        qc.save_statevector()
 
-    sim = AerSimulator(method="statevector")
-    tqc = transpile(qc, sim, optimization_level=optimization_level)
-    result = sim.run(tqc).result()
-    sv = result.get_statevector(tqc)
+        sim = AerSimulator(method="statevector")
+        tqc = transpile(qc, sim, optimization_level=optimization_level)
+        
+        # Print gate counts after transpilation
+        gate_counts = tqc.count_ops()
+        total_gates = sum(v for k, v in gate_counts.items() if k != "save_statevector")
+        log(f"\n=== Transpilation Results (Aer Simulator) ===")
+        log(f"  Circuit depth: {tqc.depth()}")
+        log(f"  Total gates: {total_gates}")
+        log(f"  Gate breakdown:")
+        for gate, count in sorted(gate_counts.items(), key=lambda x: -x[1]):
+            if gate != "save_statevector":
+                log(f"    {gate}: {count}")
+        log(f"  Number of qubits: {tqc.num_qubits}")
+        log(f"=============================================\n")
+        
+        result = sim.run(tqc).result()
+        sv = result.get_statevector(tqc)
 
-    amps = np.asarray(sv, dtype=complex)
-    probs = (np.abs(amps) ** 2).real
+        amps = np.asarray(sv, dtype=complex)
+        probs = (np.abs(amps) ** 2).real
 
     top = probs.argsort()[-topk:][::-1]
     ranked = [(int(i), float(probs[int(i)])) for i in top]
@@ -161,4 +208,4 @@ def grover_run_aer_statevector(
         else:
             log(f"  #{r}: idx={idx:6d} prob≈{p:.6f} {tag_str}")
 
-    return best_idx, best_prob, ranked
+    return best_idx, best_prob, ranked, qc, probs, hits

@@ -29,7 +29,7 @@ def cmd_search(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
     log("Running Grover (Aer statevector)...")
-    grover_run_aer_statevector(
+    best_idx, best_prob, ranked, qc, probs, hits = grover_run_aer_statevector(
         contig=contig,
         genome=genome,
         motif=motif,
@@ -38,7 +38,102 @@ def cmd_search(args: argparse.Namespace) -> None:
         progress_every=args.progress_every,
         force_iters=args.iters,
         optimization_level=args.opt_level,
+        backend=args.backend,
+        ibm_token=args.ibm_token,
+        ibm_backend=args.ibm_backend,
+        shots=args.shots,
+        output_dir=args.output,
     )
+
+    # Save outputs if output directory specified
+    if args.output:
+        from motifqu.visualization import (
+            save_circuit_diagram,
+            save_probability_histogram,
+            save_genome_visualization,
+            save_results_csv,
+            save_results_json,
+            save_summary_report,
+        )
+        import os
+
+        os.makedirs(args.output, exist_ok=True)
+        log(f"\nSaving outputs to: {args.output}")
+
+        # Save circuit diagram
+        if qc is not None:
+            try:
+                if qc.num_qubits <= 12:
+                    save_circuit_diagram(qc, args.output, "grover_circuit.png")
+                else:
+                    from qiskit import QuantumCircuit as QC
+                    viz_qc = QC(qc.num_qubits, name="Grover Search")
+                    viz_qc.h(range(qc.num_qubits))
+                    viz_qc.barrier(label="Oracle")
+                    viz_qc.barrier(label="Diffuser")
+                    save_circuit_diagram(viz_qc, args.output, "grover_circuit.png")
+            except Exception as e:
+                log(f"Could not save circuit diagram: {e}")
+
+        # Save probability histogram
+        if probs is not None:
+            top_indices = probs.argsort()[-args.topk:][::-1]
+            labels = [str(int(i)) for i in top_indices]
+            save_probability_histogram(
+                probs, [int(i) for i in top_indices],
+                labels, args.output, "probability_distribution.png"
+            )
+
+        # Save genome visualization for hit positions
+        if hits:
+            hit_kmers = {motif: hits}
+            save_genome_visualization(
+                genome, hit_kmers, args.output, "genome_motifs.png"
+            )
+
+        # Create results data
+        search_results = [(motif, len(hits), hits)]
+        
+        # Save results
+        save_results_csv(search_results, args.output, "search_results.csv")
+        save_results_json(
+            search_results,
+            {
+                "contig": contig,
+                "genome_length": len(genome),
+                "motif": motif,
+                "mismatches": args.mismatches,
+                "best_idx": best_idx,
+                "best_prob": best_prob,
+                "total_hits": len(hits),
+                "topk_results": ranked,
+            },
+            args.output,
+            "results.json",
+        )
+        
+        # Save summary report
+        with open(os.path.join(args.output, "summary_report.txt"), "w") as f:
+            f.write(f"MotifQu Search Summary Report\n")
+            f.write(f"{'=' * 50}\n\n")
+            f.write(f"Query Motif: {motif}\n")
+            f.write(f"Mismatches Allowed: {args.mismatches}\n")
+            f.write(f"Contig: {contig}\n")
+            f.write(f"Genome Length: {len(genome)}\n\n")
+            f.write(f"Results:\n")
+            f.write(f"  Total Hits: {len(hits)}\n")
+            f.write(f"  Best Match Index: {best_idx}\n")
+            f.write(f"  Best Match Probability: {best_prob:.6f}\n\n")
+            f.write(f"Top {len(ranked)} Results:\n")
+            for i, (idx, prob) in enumerate(ranked, 1):
+                f.write(f"  #{i}: position={idx}, prob={prob:.6f}\n")
+            f.write(f"\nHit Positions: {hits[:20]}")
+            if len(hits) > 20:
+                f.write(f"... ({len(hits)} total)")
+            f.write("\n")
+        log(f"Saved summary report: {args.output}/summary_report.txt")
+        
+        log(f"All outputs saved to: {args.output}")
 
     log(f"TOTAL runtime: {time.time() - t0:.3f}s")
 
@@ -194,6 +289,11 @@ def main() -> None:
     search_parser.add_argument("--progress-every", type=int, default=5, help="Progress print every N iterations.")
     search_parser.add_argument("--iters", type=int, default=None, help="Force Grover iteration count.")
     search_parser.add_argument("--opt-level", type=int, default=1, choices=[0, 1, 2, 3], help="Qiskit transpile optimization level.")
+    search_parser.add_argument("-o", "--output", default=None, help="Output directory for results, plots, and circuit diagrams.")
+    search_parser.add_argument("--backend", default="aer", choices=["aer", "ibm"], help="Backend: 'aer' (simulator) or 'ibm' (real hardware).")
+    search_parser.add_argument("--ibm-token", default=None, help="IBM Quantum API token (or set IBMQ_TOKEN env var).")
+    search_parser.add_argument("--ibm-backend", default=None, help="Specific IBM backend name (e.g., 'ibm_brisbane').")
+    search_parser.add_argument("--shots", type=int, default=4096, help="Number of shots for hardware execution (default 4096).")
     search_parser.set_defaults(func=cmd_search)
 
     # === DISCOVER subcommand ===
