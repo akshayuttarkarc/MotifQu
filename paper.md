@@ -117,6 +117,7 @@ The current implementation uses a classically computed marked set to build an ex
 
 
 # Acknowledgements
+We acknowledge the use of IBM Quantum Credits for this work. The views expressed are those of the authors, and do not reflect the official policy or position of IBM or the IBM Quantum team
 We thank MIT Vishwaprayag University for the continued support for providng research infrastructure. 
 We thank R V College of Engineering for institutional support. 
 
